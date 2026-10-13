@@ -28,6 +28,7 @@ Gem::Specification.new do |s|
   s.add_dependency('sinatra',     '~> 4.0')
   s.add_dependency('slop',        '~> 3.6',  '>= 3.6.0')
   s.add_dependency('webrick',     '~> 1.8',  '>= 1.8.0')
+  s.add_dependency('readline')
 
   s.add_development_dependency('capybara', '~> 3.40', '>= 3.40.0')
   s.add_development_dependency('capybara-screenshot', '~> 1.0', '>= 1.0.23')

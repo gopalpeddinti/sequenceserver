@@ -187,7 +187,65 @@ Please open a pull-request on GitHub to get code merged. Our test suite and the 
 
 If you change frontend code (JavaScript and CSS), please build (i.e., minify and compress) and commit the resulting JS and CSS bundles before opening a pull-request. This is because SequenceServer is run in production mode by the test suite.
 
-## Contact
+## Adding JBrowse links
 
-* Yannick Wurm (PI) - [email](mailto:yannickwurm@gmail.com) | https://wurmlab.com & https://sequenceserver.com
-* [Mailing list / forum](https://support.sequenceserver.com)
+Create a Ruby script, `jbrowse_links.rb` with the following contents, and provide it at
+the command line when starting up `sequenceserver` as `sequenceserver -r jbrowse_links.rb`.
+
+```
+# This ruby script is used to link the sequenceserver's BLAST search results
+# to the JBrowser2 genome browser tracks.
+# REFERENCE: https://jbrowse.org/docs/faq.html#how-can-i-link-blast-results-to-jbrowse
+
+require 'json'
+module SequenceServer
+   module Links
+       def jbrowse
+           qstart = hsps.map(&:qstart).min
+           sstart = hsps.map(&:sstart).min
+           qend = hsps.map(&:qend).max
+           send = hsps.map(&:send).max
+           first_hit_start = hsps.map(&:sstart).at(0)
+           first_hit_end = hsps.map(&:send).at(0)
+           assembly_id = accession.partition('_').first
+           contig_id = accession.partition('_').last
+           
+           my_features = ERB::Util.url_encode(JSON.generate([{
+               :seq_id => contig_id,
+               :start => sstart,
+               :end => send,
+               :type => "match",
+               :subfeatures =>  hsps.map {
+                 |hsp| {
+                   :start => hsp.send < hsp.sstart ? hsp.send : hsp.sstart,
+                   :end => hsp.send < hsp.sstart ? hsp.sstart : hsp.send,
+                   :type => "match_part"
+                 } 
+               }
+           }]))
+           my_track = ERB::Util.url_encode(JSON.generate([
+                {
+                   :label => "BLAST",
+                   :key => "BLAST hits",
+                   :type => "JBrowse/View/Track/CanvasFeatures",
+                   :store => "url",
+                   :glyph => "JBrowse/View/FeatureGlyph/Segments"
+                }
+           ]))
+           url = "http://example.jbrowse.org/jbrowse" \
+                        "?loc=#{contig_id}:#{first_hit_start-500}..#{first_hit_start+500}" \
+                        "&assembly=#{assembly_id}" \
+                        "&addFeatures=#{my_features}" \
+                        "&addTracks=#{my_track}" \
+                        "&tracks=BLAST,GeneAnnotation,RNASeqAlignment" \
+                        "&highlight=#{contig_id}:#{first_hit_start}..#{first_hit_end}"
+           {
+             :order => 2,
+             :title => 'JBrowse',
+             :url   => url,
+             :icon  => 'fa-external-link'
+           }
+       end
+   end
+end
+```
